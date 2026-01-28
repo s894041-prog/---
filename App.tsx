@@ -34,11 +34,50 @@ const App: React.FC = () => {
     conditions: ["血壓管理", "胃食道逆流風險"]
   };
 
+  // 前端圖片壓縮工具：解決手機上傳過大圖片的問題
+  const compressImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1024;
+        const MAX_HEIGHT = 1024;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        // 使用 JPEG 0.7 壓縮率，能大幅縮小檔案體積
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+    });
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => setSelectedImage(reader.result as string);
+      reader.onloadend = async () => {
+        const result = reader.result as string;
+        // 拍照後立即壓縮
+        const compressed = await compressImage(result);
+        setSelectedImage(compressed);
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -48,7 +87,7 @@ const App: React.FC = () => {
     setLoading(true);
     try {
       let base64Image = '';
-      let mimeType = '';
+      let mimeType = 'image/jpeg';
       if (selectedImage) {
         const parts = selectedImage.split(';');
         mimeType = parts[0].split(':')[1];
@@ -74,9 +113,9 @@ const App: React.FC = () => {
       setHistory([newResult, ...history]);
       setSelectedImage(null);
       setInputText('');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Analysis failed:", error);
-      alert("分析失敗，請稍後再試。");
+      alert(`分析失敗：${error.message || "請檢查網路連線或圖片大小"}`);
     } finally {
       setLoading(false);
     }
@@ -91,7 +130,7 @@ const App: React.FC = () => {
               <ChefHat className="text-blue-600" />
               健康教練 HealthCoach
             </h1>
-            <p className="text-sm text-slate-500">專為教育人員設計的 AI 助理</p>
+            <p className="text-sm text-slate-500">教育人員專屬健康管家</p>
           </div>
           <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
              <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
@@ -112,23 +151,23 @@ const App: React.FC = () => {
             <textarea
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="輸入餐點描述..."
-              className="w-full h-24 p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none text-slate-700"
+              placeholder="描述您的餐點（例如：自助餐、排骨便當...）"
+              className="w-full h-24 p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none text-slate-700 text-base"
             />
             <div className="flex gap-3">
-              <button onClick={() => fileInputRef.current?.click()} className="flex-1 py-3 bg-slate-100 rounded-2xl flex items-center justify-center gap-2 font-medium text-slate-600">
-                <Upload className="w-5 h-5" /> 照片
+              <button onClick={() => fileInputRef.current?.click()} className="flex-1 py-3 bg-slate-100 rounded-2xl flex items-center justify-center gap-2 font-medium text-slate-600 active:bg-slate-200">
+                <Camera className="w-5 h-5" /> 相機/照片
               </button>
               <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
               <button 
                 disabled={loading || (!inputText && !selectedImage)}
                 onClick={handleAnalysis}
-                className="flex-[2] py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white rounded-2xl font-bold transition-all shadow-lg shadow-blue-100"
+                className="flex-[2] py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white rounded-2xl font-bold transition-all shadow-lg shadow-blue-100 active:scale-95"
               >
                 {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "開始智慧分析"}
               </button>
             </div>
-            {selectedImage && <img src={selectedImage} alt="Preview" className="w-full h-32 object-cover rounded-xl mt-2 border" />}
+            {selectedImage && <img src={selectedImage} alt="Preview" className="w-full h-48 object-cover rounded-xl mt-2 border-2 border-white shadow-sm" />}
           </div>
         </section>
 
@@ -150,15 +189,15 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {item.imageUrl && <img src={item.imageUrl} alt="Meal" className="w-full h-48 object-cover" />}
+              {item.imageUrl && <img src={item.imageUrl} alt="Meal" className="w-full h-56 object-cover" />}
 
               <div className="p-5 space-y-4">
                 {/* 4 Quadrants Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3">
                   {/* BP Card - Priority 1 */}
                   <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl">
                     <div className="flex items-center gap-2 mb-2 text-blue-700 font-bold">
-                      <Activity className="w-4 h-4" /> 血壓/鹽分監控
+                      <Activity className="w-4 h-4 text-blue-500" /> 血壓/鹽分監控
                     </div>
                     <p className="text-sm text-blue-800 leading-relaxed">{item.breakdown.bloodPressure}</p>
                   </div>
@@ -166,7 +205,7 @@ const App: React.FC = () => {
                   {/* Sugar Card */}
                   <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl">
                     <div className="flex items-center gap-2 mb-2 text-amber-700 font-bold">
-                      <Zap className="w-4 h-4" /> 控糖/澱粉檢視
+                      <Zap className="w-4 h-4 text-amber-500" /> 控糖/澱粉檢視
                     </div>
                     <p className="text-sm text-amber-800 leading-relaxed">{item.breakdown.sugarStarch}</p>
                   </div>
@@ -174,7 +213,7 @@ const App: React.FC = () => {
                   {/* Fat Card */}
                   <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl">
                     <div className="flex items-center gap-2 mb-2 text-rose-700 font-bold">
-                      <Droplets className="w-4 h-4" /> 減脂/體重管理
+                      <Droplets className="w-4 h-4 text-rose-500" /> 減脂/體重管理
                     </div>
                     <p className="text-sm text-rose-800 leading-relaxed">{item.breakdown.fatWeight}</p>
                   </div>
@@ -182,7 +221,7 @@ const App: React.FC = () => {
                   {/* Reflux Card */}
                   <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl">
                     <div className="flex items-center gap-2 mb-2 text-emerald-700 font-bold">
-                      <Wind className="w-4 h-4" /> 胃食道逆流友善
+                      <Wind className="w-4 h-4 text-emerald-500" /> 胃食道逆流友善
                     </div>
                     <p className="text-sm text-emerald-800 leading-relaxed">{item.breakdown.acidReflux}</p>
                   </div>
@@ -191,7 +230,7 @@ const App: React.FC = () => {
                 {/* Support Block */}
                 <div className="mt-4 p-4 bg-slate-100/50 rounded-2xl border-l-4 border-slate-400">
                   <div className="flex items-center gap-2 text-slate-500 font-bold text-xs mb-1">
-                    <Heart className="w-3 h-3" /> 心理支持與關懷
+                    <Heart className="w-3 h-3 text-rose-400" /> 心理支持與關懷
                   </div>
                   <p className="text-sm text-slate-600 italic leading-relaxed">「{item.support}」</p>
                 </div>
@@ -208,12 +247,12 @@ const App: React.FC = () => {
               <Info className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="text-[10px] text-slate-400 font-bold">管理重點</div>
-              <div className="text-xs font-medium">血壓監控 (140/90) & 逆流防護</div>
+              <div className="text-[10px] text-slate-400 font-bold uppercase">Management Priority</div>
+              <div className="text-xs font-medium">BP: 140/90 & Acid Reflux</div>
             </div>
           </div>
-          <button className="text-[10px] bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-700 transition-colors">
-            檢視月報表
+          <button className="text-[10px] bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 active:bg-slate-700 transition-colors">
+            月報表
           </button>
       </footer>
     </div>
