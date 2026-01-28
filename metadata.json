@@ -1,0 +1,7 @@
+{
+  "name": "HealthCoach - 教育人員智慧健康教練",
+  "description": "專為資深教育人員設計的 AI 飲食健康教練，結合臨床營養與整合醫學，協助管理血壓、體重及胃食道逆流。",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
